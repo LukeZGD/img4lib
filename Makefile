@@ -26,8 +26,9 @@ LDFLAGS += -Llzfse/build/bin
 else
 ifneq (,$(wildcard /usr/lib/libcompression.dylib))
 # Darwin libcompression is available
-CFLAGS += -DUSE_LIBCOMPRESSION
+CFLAGS += -DUSE_LIBCOMPRESSION -I/opt/local/include
 LDLIBS = -lcompression
+LDFLAGS += -L/opt/local/lib
 endif
 endif
 
@@ -124,7 +125,7 @@ CFLAGS += -DUSE_COMMONCRYPTO
 LDLIBS += -framework Security -framework CoreFoundation
 else
 CFLAGS += -Wno-deprecated-declarations
-LDLIBS += -lcrypto
+LDLIBS += /opt/local/libexec/openssl3/lib/libcrypto.a /opt/local/lib/libz.a
 endif
 endif
 
