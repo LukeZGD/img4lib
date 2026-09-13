@@ -1,0 +1,47 @@
+name: Build gaster
+
+on: [push]
+
+jobs:
+  build-linux:
+    strategy:
+      matrix:
+        arch:
+          - runner: ubuntu-22.04
+            name: x86_64
+          - runner: ubuntu-22.04-arm
+            name: aarch64
+
+    name: build-linux-${{ matrix.arch.name }}
+    runs-on: ${{ matrix.arch.runner }}
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Install dependencies
+      run: |
+          sudo apt update
+          sudo apt install -y build-essential
+          sudo apt remove -y libssl-dev
+          aria2c https://www.openssl.org/source/openssl-1.1.1w.tar.gz
+          tar -zxvf openssl-1.1.1w.tar.gz
+          cd openssl-1.1.1w
+          if [[ $(uname -m) == "a"* && $(getconf LONG_BIT) == 64 ]]; then
+            ./Configure no-ssl3-method linux-aarch64 "-Wa,--noexecstack -fPIC"
+          else
+            ./Configure no-ssl3-method enable-ec_nistp_64_gcc_128 linux-x86_64 "-Wa,--noexecstack -fPIC"
+          fi
+          make depend -j4
+          make -j4
+          sudo make install_sw install_ssldirs
+          sudo rm -rf /usr/local/lib/libcrypto.so* /usr/local/lib/libssl.so*
+          cd ..
+
+    - name: run make
+      run: make
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v7
+      with:
+          name: img4lib-linux-${{ matrix.arch.name }}
+          path: img4

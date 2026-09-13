@@ -1,34 +1,46 @@
 # undefined = use OpenSSL
+
 # 1 = use included sources
-#CORECRYPTO = 1
+
+# CORECRYPTO removed
 
 # Darwin can use CommonCrypto instead of OpenSSL
-#COMMONCRYPTO = 1
 
-CC = gcc
+# COMMONCRYPTO = 1
+
+CC = clang
+LD = clang
+AR = ar
+ARFLAGS = crus
+
+ARCH ?= $(shell uname -m)
+
+BUILD_DIR = build/$(ARCH)
+OBJ_DIR = $(BUILD_DIR)/obj
+
 CFLAGS = -Wall -W -pedantic
 CFLAGS += -Wno-variadic-macros -Wno-multichar -Wno-four-char-constants -Wno-unused-parameter
 CFLAGS += -O2 -I. -g -DiOS10
 CFLAGS += -DDER_MULTIBYTE_TAGS=1 -DDER_TAG_SIZE=8
 CFLAGS += -D__unused="__attribute__((unused))"
+CFLAGS += -Wno-deprecated-declarations
+CFLAGS += -arch $(ARCH)
 
-LD = gcc
-LDFLAGS = -g
-LDLIBS = -llzfse
+LDFLAGS = -g -arch $(ARCH)
 
-AR = ar
-ARFLAGS = crus
+# Use the universal LZFSE library built by lzfse/Makefile.
 
 ifneq (,$(wildcard lzfse/build/bin/liblzfse.a))
-# liblzfse.a exists in-tree
 CFLAGS += -Ilzfse/src
 LDFLAGS += -Llzfse/build/bin
+LDLIBS = -llzfse
 else
 ifneq (,$(wildcard /usr/lib/libcompression.dylib))
+
 # Darwin libcompression is available
-CFLAGS += -DUSE_LIBCOMPRESSION -I/opt/local/include
+
+CFLAGS += -DUSE_LIBCOMPRESSION
 LDLIBS = -lcompression
-LDFLAGS += -L/opt/local/lib
 endif
 endif
 
@@ -52,100 +64,67 @@ DERSOURCES = \
 	libDER/DER_Decode.c \
 	libDER/oids.c
 
-CCSOURCES = \
-	corecrypto/arm/ccn_add.s \
-	corecrypto/arm/ccn_addmul1.s \
-	corecrypto/arm/ccn_cmp-arm64.s \
-	corecrypto/arm/ccn_cmp.s \
-	corecrypto/arm/ccn_mul.s \
-	corecrypto/arm/ccn_mul1.s \
-	corecrypto/arm/ccn_n-arm64.s \
-	corecrypto/arm/ccn_n.s \
-	corecrypto/arm/ccn_set.s \
-	corecrypto/arm/ccn_sub.s \
-	corecrypto/intel/ccn_add.s \
-	corecrypto/intel/ccn_cmp-x86_64.s \
-	corecrypto/intel/ccn_mul.s \
-	corecrypto/intel/ccn_n-x86_64.s \
-	corecrypto/intel/ccn_sub.s \
-	corecrypto/cc_clear.c \
-	corecrypto/cc_cmp_safe.c \
-	corecrypto/ccaes_cbc_decrypt_mode.c \
-	corecrypto/ccaes_cbc_encrypt_mode.c \
-	corecrypto/gladman/aescrypt.c \
-	corecrypto/gladman/aeskey.c \
-	corecrypto/gladman/aestab.c \
-	corecrypto/gladman/ccaes_gladman_cbc_decrypt.c \
-	corecrypto/gladman/ccaes_gladman_cbc_encrypt.c \
-	corecrypto/arm/aesdata.s \
-	corecrypto/arm/aesdecbc.s \
-	corecrypto/arm/aesencbc.s \
-	corecrypto/arm/aeskey.s \
-	corecrypto/arm/ccaes_arm_cbc_decrypt_mode.c \
-	corecrypto/arm/ccaes_arm_cbc_encrypt_mode.c \
-	corecrypto/ccdigest.c \
-	corecrypto/ccdigest_final_64be.c \
-	corecrypto/ccdigest_init.c \
-	corecrypto/ccdigest_update.c \
-	corecrypto/ccn_add.c \
-	corecrypto/ccn_bitlen.c \
-	corecrypto/ccn_cmp.c \
-	corecrypto/ccn_mul.c \
-	corecrypto/ccn_n.c \
-	corecrypto/ccn_read_uint.c \
-	corecrypto/ccn_set.c \
-	corecrypto/ccn_shift_right.c \
-	corecrypto/ccn_shift_right_multi.c \
-	corecrypto/ccn_sqr.c \
-	corecrypto/ccn_sub.c \
-	corecrypto/ccn_write_uint.c \
-	corecrypto/ccrsa_emsa_pkcs1v15_verify.c \
-	corecrypto/ccrsa_pub_crypt.c \
-	corecrypto/ccrsa_verify_pkcs1v15.c \
-	corecrypto/ccsha1_initial_state.c \
-	corecrypto/ccsha1_ltc.c \
-	corecrypto/cczp_init.c \
-	corecrypto/cczp_mod.c \
-	corecrypto/cczp_mul.c \
-	corecrypto/cczp_power_fast.c \
-	corecrypto/cczp_sqr.c
+LIBOBJECTS = \
+	$(addprefix $(OBJ_DIR)/,$(LIBSOURCES:.c=.o)) \
+	$(addprefix $(OBJ_DIR)/,$(DERSOURCES:.c=.o)) \
+	$(addprefix $(OBJ_DIR)/,$(VFSSOURCES:.c=.o))
 
-LIBOBJECTS = $(LIBSOURCES:.c=.o) $(DERSOURCES:.c=.o) $(VFSSOURCES:.c=.o)
-CCOBJECTS = $(addsuffix .o,$(basename $(CCSOURCES)))
+MAINOBJECTS = \
+	$(addprefix $(OBJ_DIR)/,$(SOURCES:.c=.o))
 
-ifdef CORECRYPTO
-CC = clang
-CFLAGS += -Wno-gnu -DUSE_CORECRYPTO #-DIBOOT=1
-#CFLAGS += -DNO_CCZP_OPTIONS	# either way
-LIBOBJECTS += $(CCOBJECTS)
-else
+OBJECTS = $(MAINOBJECTS) $(LIBOBJECTS)
+
 ifdef COMMONCRYPTO
-CC = clang
 CFLAGS += -DUSE_COMMONCRYPTO
 LDLIBS += -framework Security -framework CoreFoundation
 else
-CFLAGS += -Wno-deprecated-declarations
-LDLIBS += /opt/local/libexec/openssl3/lib/libcrypto.a /opt/local/lib/libz.a
-endif
+LDLIBS += -lcrypto
 endif
 
-OBJECTS = $(SOURCES:.c=.o) $(LIBOBJECTS)
+.PHONY: all clean distclean universal
 
-.c.o:
+all: img4 libimg4.a
+
+img4: $(BUILD_DIR)/img4
+	cp $< $@
+
+libimg4.a: $(BUILD_DIR)/libimg4.a
+	cp $< $@
+
+$(BUILD_DIR)/img4: $(OBJECTS) $(BUILD_DIR)/libimg4.a
+	$(LD) -o $@ $(LDFLAGS) $(MAINOBJECTS) $(BUILD_DIR)/libimg4.a $(LDLIBS)
+
+$(BUILD_DIR)/libimg4.a: $(LIBOBJECTS)
+	@mkdir -p $(dir $@)
+	$(AR) $(ARFLAGS) $@ $(LIBOBJECTS)
+
+$(OBJ_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
 	$(CC) -o $@ $(CFLAGS) -c $<
-.s.o:
-	$(CC) -o $@ $(CFLAGS) -x assembler-with-cpp -c $<
-
-all: img4
-
-img4: $(OBJECTS) libimg4.a
-	$(LD) -o $@ $(LDFLAGS) $^ $(LDLIBS)
-
-libimg4.a: $(LIBOBJECTS)
-	$(AR) $(ARFLAGS) $@ $^
 
 clean:
-	-$(RM) $(OBJECTS) $(CCOBJECTS)
+	-$(RM) -r build
+	-$(RM) img4 libimg4.a
 
 distclean: clean
-	-$(RM) img4 libimg4.a
+
+universal:
+	$(MAKE) ARCH=arm64
+	cp build/arm64/img4 build/img4.arm64
+	cp build/arm64/libimg4.a build/libimg4.arm64.a
+
+	$(MAKE) ARCH=x86_64
+	cp build/x86_64/img4 build/img4.x86_64
+	cp build/x86_64/libimg4.a build/libimg4.x86_64.a
+
+	@mkdir -p build/bin
+
+	lipo -create build/img4.arm64 build/img4.x86_64 \
+		-output build/bin/img4
+
+	lipo -create build/libimg4.arm64.a build/libimg4.x86_64.a \
+		-output build/bin/libimg4.a
+
+	@echo "Universal binaries created:"
+	@lipo -info build/bin/img4
+	@lipo -info build/bin/libimg4.a
