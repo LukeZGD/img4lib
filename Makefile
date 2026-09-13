@@ -14,6 +14,7 @@ AR = ar
 ARFLAGS = crus
 
 ARCH ?= $(shell uname -m)
+OS := $(shell uname -s)
 
 BUILD_DIR = build/$(ARCH)
 OBJ_DIR = $(BUILD_DIR)/obj
@@ -24,21 +25,22 @@ CFLAGS += -O2 -I. -g -DiOS10
 CFLAGS += -DDER_MULTIBYTE_TAGS=1 -DDER_TAG_SIZE=8
 CFLAGS += -D__unused="__attribute__((unused))"
 CFLAGS += -Wno-deprecated-declarations
+
+LDFLAGS = -g
+
+ifeq ($(OS),Darwin)
 CFLAGS += -arch $(ARCH)
-
-LDFLAGS = -g -arch $(ARCH)
-
-# Use the universal LZFSE library built by lzfse/Makefile.
+LDFLAGS += -arch $(ARCH)
+endif
 
 ifneq (,$(wildcard lzfse/build/bin/liblzfse.a))
+# liblzfse.a exists in-tree
 CFLAGS += -Ilzfse/src
 LDFLAGS += -Llzfse/build/bin
 LDLIBS = -llzfse
 else
 ifneq (,$(wildcard /usr/lib/libcompression.dylib))
-
 # Darwin libcompression is available
-
 CFLAGS += -DUSE_LIBCOMPRESSION
 LDLIBS = -lcompression
 endif

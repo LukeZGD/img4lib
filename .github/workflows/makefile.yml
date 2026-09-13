@@ -1,4 +1,4 @@
-name: Build gaster
+name: Build
 
 on: [push]
 
@@ -16,10 +16,12 @@ jobs:
     runs-on: ${{ matrix.arch.runner }}
 
     steps:
-    - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
 
-    - name: Install dependencies
-      run: |
+      - name: Install dependencies
+        run: |
           sudo apt update
           sudo apt install -y build-essential
           sudo apt remove -y libssl-dev
@@ -37,11 +39,24 @@ jobs:
           sudo rm -rf /usr/local/lib/libcrypto.so* /usr/local/lib/libssl.so*
           cd ..
 
-    - name: run make
-      run: make
+          cd lzfse
+          make
+          cd ..
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v7
-      with:
-          name: img4lib-linux-${{ matrix.arch.name }}
-          path: img4
+      - name: run make
+        run: make
+
+      - name: Zip img4lib
+        run: zip -r img4lib_linux-${{ matrix.arch.name }}.zip img4 libimg4.a
+
+      - name: Update latest release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload latest \
+            img4lib_linux-${{ matrix.arch.name }}.zip \
+            --clobber -R ${{ github.repository }}
+
+          gh release edit latest \
+            --title "Latest" \
+            --target ${{ github.sha }} -R ${{ github.repository }}

@@ -1,0 +1,110 @@
+4c4
+< # are permitted provided that the following conditions are met:  
+---
+> # are permitted provided that the following conditions are met:
+6,7c6,7
+< # 1.  Redistributions of source code must retain the above copyright notice,
+< #     this list of conditions and the following disclaimer.
+---
+> # 1. Redistributions of source code must retain the above copyright notice,
+> #    this list of conditions and the following disclaimer.
+9,10c9,11
+< # 2.  Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
+< #     following disclaimer in the documentation and/or other materials provided with the distribution.
+---
+> # 2. Redistributions in binary form must reproduce the above copyright notice,
+> #    this list of conditions and the following disclaimer in the documentation
+> #    and/or other materials provided with the distribution.
+12,13c13,15
+< # 3.  Neither the name of the copyright holder(s) nor the names of any contributors may be used to endorse or
+< #     promote products derived from this software without specific prior written permission.
+---
+> # 3. Neither the name of the copyright holder(s) nor the names of any
+> #    contributors may be used to endorse or promote products derived from
+> #    this software without specific prior written permission.
+15,21c17,20
+< # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+< # INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+< # DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+< # SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+< # SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+< # WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+< # USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+---
+> # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+> # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+> # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+> # ARE DISCLAIMED.
+25c24,30
+< BUILD_DIR := ./build
+---
+> CC ?= clang
+> LD ?= clang
+> AR ?= ar
+> 
+> ARCH ?= $(shell uname -m)
+> 
+> BUILD_DIR := ./build/$(ARCH)
+28a34,39
+> CFLAGS := -Os -Wall -Wno-unknown-pragmas -Wno-unused-variable \
+>           -DNDEBUG -D_POSIX_C_SOURCE -std=c99 -fvisibility=hidden \
+>           -arch $(ARCH)
+> 
+> LDFLAGS := -arch $(ARCH)
+> 
+31,33c42,48
+< LIB_OBJS := $(OBJ_DIR)/lzfse_encode.o  $(OBJ_DIR)/lzfse_decode.o \
+<             $(OBJ_DIR)/lzfse_encode_base.o $(OBJ_DIR)/lzfse_decode_base.o \
+<             $(OBJ_DIR)/lzvn_encode_base.o $(OBJ_DIR)/lzvn_decode_base.o \
+---
+> 
+> LIB_OBJS := $(OBJ_DIR)/lzfse_encode.o \
+>             $(OBJ_DIR)/lzfse_decode.o \
+>             $(OBJ_DIR)/lzfse_encode_base.o \
+>             $(OBJ_DIR)/lzfse_decode_base.o \
+>             $(OBJ_DIR)/lzvn_encode_base.o \
+>             $(OBJ_DIR)/lzvn_decode_base.o \
+34a50
+> 
+35a52
+> 
+38c55
+< CFLAGS := -Os -Wall -Wno-unknown-pragmas -Wno-unused-variable -DNDEBUG -D_POSIX_C_SOURCE -std=c99 -fvisibility=hidden
+---
+> .PHONY: all install clean distclean universal
+40c57
+< all: $(LZFSE_LIB) $(LZFSE_CMD) $(OBJS)
+---
+> all: $(LZFSE_LIB) $(LZFSE_CMD)
+57,60c74
+< 	$(CC) $(CFLAGS) -o $@ $(CMD_OBJS) $(LZFSE_LIB)
+< 
+< clean:
+< 	/bin/rm -rf $(BUILD_DIR)
+---
+> 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(CMD_OBJS) $(LZFSE_LIB)
+64a79,102
+> 
+> clean:
+> 	/bin/rm -rf ./build
+> 
+> distclean: clean
+> 
+> # Build arm64 and x86_64 versions, then combine them.
+> universal:
+> 	$(MAKE) clean
+> 	$(MAKE) ARCH=arm64
+> 	mv build/arm64/bin/liblzfse.a build/liblzfse.arm64.a
+> 	mv build/arm64/bin/lzfse build/lzfse.arm64
+> 
+> 	$(MAKE) ARCH=x86_64
+> 	cp build/x86_64/bin/liblzfse.a build/liblzfse.x86_64.a
+> 	cp build/x86_64/bin/lzfse build/lzfse.x86_64
+> 
+> 	@mkdir -p build/bin
+> 
+> 	lipo -create build/liblzfse.arm64.a build/liblzfse.x86_64.a \
+> 		-output build/bin/liblzfse.a
+> 
+> 	lipo -create build/lzfse.arm64 build/lzfse.x86_64 \
+> 		-output build/bin/lzfse
